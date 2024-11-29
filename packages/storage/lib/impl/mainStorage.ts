@@ -5,6 +5,9 @@ import type { BaseStorage } from '../base/types';
 type MainStorageState = {
   auto_refresh: boolean;
   interval: number;
+  open_info_bottom: boolean;
+  top_increase_price: number;
+  auto_book: boolean;
 };
 
 type ThemeStorage = BaseStorage<MainStorageState> & {
@@ -16,6 +19,9 @@ const storage = createStorage<MainStorageState>(
   {
     auto_refresh: false,
     interval: 5,
+    open_info_bottom: true,
+    top_increase_price: 50,
+    auto_book: false,
   },
   {
     storageEnum: StorageEnum.Local,
