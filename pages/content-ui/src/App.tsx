@@ -1,27 +1,34 @@
-import { useStorage } from '@extension/shared';
-import { mainStorage } from '@extension/storage';
-import { useEffect } from 'react';
-
-type FieldProps = {
-  value: string;
-  onChange: (e: any) => void;
-  label: string;
-};
-
-type SelectProps = FieldProps & {
-  options: {
-    value: string;
-    label: string;
-  }[];
-};
+import { Button } from '@extension/ui';
+import { debounce } from 'lodash';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ReactDOM from 'react-dom/client';
+import { Control, Controller, SubmitHandler, useForm, UseFormGetValues, useWatch } from 'react-hook-form';
+import { AutoBookCollaps } from './AutoBookCollaps';
+import { Radio } from './Radio';
+import { RangeSliderInput } from './RangeSliderInput';
+import { ShipmentUI } from './ShipmentExpanded';
+import { Switch } from './Switch';
+import { parseLoadList } from './parser';
+import { ControlPanelState, DataView, DataViewType } from './type';
+import { createRandomInterval } from './utils';
 
 function getRefreshButton() {
   return document.querySelector<HTMLButtonElement>('#utility-bar div.refresh-and-chat-box button');
 }
 
+function turnOffAmazonAutoRefresh() {
+  const el = document.querySelector<HTMLInputElement>(
+    '#utility-bar > div > div > div.refresh-and-chat-box > div > div > div > div > div > label > input',
+  );
+
+  if (el && el.checked) {
+    el.click();
+  }
+}
+
 function isPageRefreshDisabled() {
   const el = document.querySelector<HTMLParagraphElement>(
-    '#utility-bar > div > div > div.refresh-and-chat-box > div > div.css-1vq46oc > div > p',
+    '#utility-bar > div > div > div.refresh-and-chat-box > div > div > div > p',
   );
 
   return el?.textContent === 'Turn on auto refresh';
@@ -34,7 +41,11 @@ function clickRefreshButton() {
 
   if (btn) {
     btn.click();
+
+    return true;
   }
+
+  return false;
 }
 
 function getFirstItem() {
@@ -43,212 +54,571 @@ function getFirstItem() {
   );
 }
 
-function addPadding() {
-  const firstItem = getFirstItem();
+function watchDomPromise() {
+  return new Promise<boolean>(res => {
+    let t = 0;
+    const c = watchDom(() => {
+      c();
+      clearInterval(t);
+      res(true);
+    });
 
-  if (!firstItem) {
-    return;
-  }
-
-  firstItem.style.paddingBottom = '200px';
-
-  // @ts-ignore
-  setTimeout(() => firstItem.firstChild?.click(), 500);
+    t = setTimeout(() => {
+      c();
+      res(false);
+    }, 1000 * 30);
+  });
 }
 
-const ref = { no: true };
-
 function watchDom(onAppear: () => void) {
-  const i = setInterval(() => {
-    if (ref.no) {
-      if (getFirstItem()) {
-        onAppear();
-        ref.no = false;
-      }
-    } else {
-      if (!getFirstItem()) {
-        ref.no = true;
-      }
-    }
-  }, 300);
+  let i = 0;
 
-  return () => clearInterval(i);
+  const c = () => clearInterval(i);
+
+  i = setInterval(() => {
+    if (getFirstItem()) {
+      c();
+      onAppear();
+    }
+  }, 50);
+
+  setTimeout(c, 1000 * 30);
+
+  return c;
+}
+
+const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/765/765-preview.mp3');
+/**
+ * function to insert style tag to head with body of #utility-bar bottom 130px with important
+ * @returns
+ */
+function insertStyleTag() {
+  const style = document.createElement('style');
+  style.innerHTML = `#utility-bar { bottom: 130px !important; }`;
+  document.head.appendChild(style);
 }
 
 export default function App() {
-  const main = useStorage(mainStorage);
-
   useEffect(() => {
-    const originalFetch = window.fetch;
-    window.fetch = async (...args) => {
-      console.log('Fetch called with:', args);
-      const response = await originalFetch(...args);
-      console.log('Response received:', response);
-      return response;
+    insertStyleTag();
+  }, []);
+  return <ControlPanel />;
+}
+
+type RefreshManagetConfig = {
+  range: [number, number];
+  change_price: number;
+  auto_expand: boolean;
+  data_view_type: DataViewType;
+};
+type ItemData = {
+  id: string;
+  price: number;
+};
+
+function getDiff(new_data: ItemData[], current: ItemData[], change: number): ItemData[] {
+  const currentMap = new Map<string, number>();
+  // Populate the map with current items: key is id, value is price
+  for (const item of current) {
+    currentMap.set(item.id, item.price);
+  }
+
+  const result: ItemData[] = [];
+
+  for (const newItem of new_data) {
+    const oldPrice = currentMap.get(newItem.id);
+    if (oldPrice === undefined) {
+      // New item (id does not exist in the current data)
+      result.push(newItem);
+    } else if (Math.abs(newItem.price - oldPrice) >= change) {
+      // Existing item with significant price change
+      result.push(newItem);
+    }
+  }
+
+  return result;
+}
+
+const gref: {
+  items: ItemData[];
+} = {
+  items: [],
+};
+
+function moveLoadCardToTop(ids: string[]) {
+  // Get the load-list container
+  const loadList = document.querySelector('.load-list');
+  if (!loadList) return;
+
+  let targetLoadCard: HTMLDivElement | null = null;
+
+  for (const targetId of ids) {
+    // Find the card with the matching ID
+    const targetCard = loadList.querySelector(`.load-card div[id="${targetId}"]`);
+    if (!targetCard) return;
+
+    // Get the parent load-card element
+    targetLoadCard = targetCard.parentElement as HTMLDivElement;
+
+    // set light green background to targetLoadCard
+    targetLoadCard.style.background = 'rgb(224 255 222)';
+
+    if (!targetLoadCard) return;
+
+    // Move the card to the top by inserting before the first child
+    loadList.insertBefore(targetLoadCard, loadList.firstChild);
+  }
+
+  return targetLoadCard;
+}
+
+function clickRowActionOverset(cb: (el: HTMLDivElement, e: Event) => void) {
+  // Get the load-list container
+  const cards = document.querySelectorAll<HTMLDivElement>('.load-list .load-card');
+
+  if (!cards || !cards.length) return;
+
+  // set click events and stop propagation
+  cards.forEach(card => {
+    // @ts-ignore
+    card.firstChild.addEventListener('click', e => {
+      cb(card.firstChild as any, e);
+    });
+  });
+}
+
+function insertToDom(card: HTMLDivElement) {
+  // Create a root div dynamically
+  const prevSibling = card.firstChild as HTMLDivElement;
+
+  const rootDiv = document.createElement('div');
+  rootDiv.id = 'react-shipment-root';
+  card.appendChild(rootDiv);
+
+  // Render the React component
+  const root = ReactDOM.createRoot(rootDiv);
+
+  const parsed = parseLoadList(card);
+  root.render(
+    <ShipmentUI
+      data={{
+        locations: [
+          {
+            address: parsed.pickup.location,
+            id: `${parsed.pickup.stopNumber}`,
+            arrival: parsed.pickup.time,
+            departure: '{departure}',
+            equipment: parsed.equipmentType,
+            status: '{status}',
+            weight: 0,
+          },
+          {
+            address: parsed.delivery.location,
+            id: `${parsed.delivery.stopNumber}`,
+            arrival: '{arrival}',
+            departure: parsed.delivery.time,
+            equipment: parsed.equipmentType,
+            status: '{status}',
+            weight: 0,
+          },
+        ],
+        totalCost: parsed.payment.total,
+        totalDistance: parsed.totalDistance,
+        totalTime: parsed.duration,
+      }}
+      onClear={() => {
+        prevSibling.classList.remove('opened');
+        root.unmount();
+        rootDiv.remove();
+      }}
+    />,
+  );
+}
+
+class RefreshManager {
+  config: RefreshManagetConfig = {
+    range: [100, 5000],
+    change_price: 100,
+    auto_expand: false,
+    data_view_type: 'both',
+  };
+  running = false;
+
+  setConfig() {
+    this.config.range = [1, 20];
+  }
+  start() {
+    console.log('started', this.config.range);
+
+    this.stop = createRandomInterval(async () => {
+      console.log('run every: ' + this.config.range.join(', '));
+      if (clickRefreshButton()) {
+        const resolved = await watchDomPromise();
+
+        if (!resolved) {
+          return;
+        }
+
+        if (this.config.data_view_type !== DataView.new) {
+          clickRowActionOverset((el_with_id, event) => {
+            if (!el_with_id) return;
+
+            if (this.config.data_view_type === DataView.both || this.config.data_view_type === DataView.old) {
+              if (!el_with_id.classList.contains('opened')) {
+                el_with_id.classList.add('opened');
+                insertToDom(el_with_id.parentElement as any);
+
+                if (this.config.data_view_type === DataView.old) {
+                  event.stopPropagation();
+                }
+              }
+            }
+
+            if (this.config.data_view_type === DataView.both) {
+              // @ts-ignore
+              el_with_id?.click();
+            }
+          });
+        }
+
+        // get content
+
+        const listItems = Array.from(
+          document.querySelectorAll('#active-tab-body > div > div > div > div:nth-child(2) > div.load-list .load-card'),
+        );
+
+        const data = listItems
+          .map(item => {
+            const id = item.querySelector('[id]')?.getAttribute('id');
+            const price = Number(
+              item.querySelector<HTMLSpanElement>('.wo-total_payout')?.textContent?.trim().slice(1).replace(/,/g, ''),
+            );
+
+            if (!id || !price) {
+              return;
+            }
+
+            return { id, price };
+          })
+          .filter(a => a !== undefined);
+
+        if (gref.items.length === 0) {
+          gref.items = data;
+        }
+
+        const diffs = getDiff(data, gref.items, this.config.change_price);
+
+        gref.items = data;
+
+        if (!diffs.length) return;
+
+        const card = moveLoadCardToTop(diffs.map(a => a.id));
+
+        if (!card) return;
+
+        this.running = false;
+        this.stop();
+        this.onStop();
+        audio.play();
+
+        card.style.background = 'rgb(182, 227, 255)';
+
+        if (this.config.auto_expand) {
+          // @ts-ignore
+          card.firstChild?.click();
+        }
+      }
+    }, this.config.range);
+  }
+
+  stop() {}
+  onStop() {}
+  restart() {
+    if (this.running) {
+      this.stop();
+      this.start();
+    }
+  }
+}
+// const originalFetch = window.fetch;
+
+// setInterval(() => {
+//   window.fetch = async (...args) => {
+//     if (args[0].toString() === '/api/loadboard/search') {
+//       console.log('1111');
+//     }
+//     const response = await originalFetch(...args);
+//     console.log(args);
+//     return response;
+//   };
+// }, 100);
+
+function ValueRenderForm({
+  render,
+  ...props
+}: {
+  control: Control<ControlPanelState, any>;
+  name: string;
+  render: (value: any) => React.ReactNode;
+}) {
+  const value = useWatch(props);
+
+  return render(value);
+}
+
+const ControlPanel = () => {
+  const { handleSubmit, watch, control, setValue, getValues } = useForm<ControlPanelState>({
+    defaultValues: {
+      standart_refresh: false,
+      human_like_refresh: false,
+      data_view: 'both',
+      newest_to_top: true,
+      multi_tab: false,
+      auto_open_data: false,
+      auto_open_tab: false,
+      non_stop_refresh: false,
+      change_price: [50],
+      refresh_interval: [5],
+      range_refresh_interval: [1, 8],
+    },
+  });
+
+  const onSubmit: SubmitHandler<ControlPanelState> = () => {};
+
+  const standart_refresh = watch('standart_refresh');
+  const human_like_refresh = watch('human_like_refresh');
+
+  const [startApp, setStartApp] = useState(false);
+
+  const refreshManager = useMemo(() => {
+    const rf = new RefreshManager();
+
+    rf.onStop = () => {
+      setStartApp(false);
     };
 
-    function onAppear() {
-      console.log('appered', 1);
-      addPadding();
-    }
-    return watchDom(onAppear);
+    return rf;
   }, []);
 
+  const debouncedChangeConfig = useCallback(
+    debounce((getValues: UseFormGetValues<ControlPanelState>) => {
+      const values = getValues();
+
+      let range = values.range_refresh_interval;
+
+      if (range) {
+        // @ts-ignore
+        range = range.map(a => a * 1000);
+      }
+
+      if (!values.standart_refresh && !values.human_like_refresh) {
+        range = [values.refresh_interval[0] * 1000, values.refresh_interval[0] * 1000 + 10];
+      }
+
+      // if (refreshManager.config.range[0] !== range[0] || refreshManager.config.range[1] !== range[1]) {
+      refreshManager.config.range = range;
+      refreshManager.config.auto_expand = values.auto_open_data;
+      refreshManager.config.change_price = values.change_price[0];
+      refreshManager.config.data_view_type = values.data_view;
+
+      refreshManager.restart();
+    }, 200),
+    [],
+  );
+
   useEffect(() => {
-    if (!isPageRefreshDisabled()) return;
-    function setrefresh() {
-      return setInterval(() => {
-        console.log('refresh every: ' + main.interval);
-        clickRefreshButton();
-      }, 1000 * main.interval);
+    const { unsubscribe } = watch((value, info) => {
+      if (info.name === 'standart_refresh' && value.standart_refresh) {
+        setValue('range_refresh_interval', [0.5, 1.5]);
+
+        if (value.human_like_refresh) {
+          setValue('human_like_refresh', false);
+        }
+      }
+
+      // standart_refresh o'chirish
+      if (info.name === 'human_like_refresh' && value.human_like_refresh && value.standart_refresh) {
+        setValue('standart_refresh', false);
+      }
+
+      debouncedChangeConfig(getValues);
+    });
+
+    return () => unsubscribe();
+  }, [watch]);
+
+  useEffect(() => {
+    refreshManager.running = startApp;
+
+    if (!startApp) {
+      refreshManager.stop();
+      return;
     }
 
-    const start = main.auto_refresh ? setrefresh() : 0;
+    turnOffAmazonAutoRefresh();
 
-    return () => clearInterval(start);
-  }, [main.interval, main.auto_refresh]);
+    debouncedChangeConfig(getValues);
+
+    return refreshManager.stop;
+  }, [startApp]);
 
   return (
-    <div className="flex shadow-xl border gap-2 rounded-lg bg-slate-50 fixed left-1/2 -translate-x-1/2 bottom-0 z-[1001] p-3 pb-1">
-      <div className="flex  flex-col items-start">
-        <Switch
-          checked={main.auto_refresh}
-          label="Auto refresh"
-          onChange={e => {
-            if (!isPageRefreshDisabled()) {
-              return;
-            }
-            mainStorage.update({
-              auto_refresh: e.target.checked,
-            });
-          }}
-        />
-        <Select
-          label="Interval"
-          onChange={e => {
-            console.log(e);
-            mainStorage.update({
-              interval: e.target.value,
-            });
-          }}
-          options={[
-            {
-              label: '10s',
-              value: '10',
-            },
-            {
-              label: '6s',
-              value: '6',
-            },
-            {
-              label: '5s',
-              value: '5',
-            },
-            {
-              label: '4s',
-              value: '4',
-            },
-            {
-              label: '3s',
-              value: '3',
-            },
-          ]}
-          value={String(main.interval)}
-        />
-      </div>
-      <div className="flex flex-col items-start ml-4">
-        <Switch
-          checked={main.open_info_bottom}
-          label="Open bottom"
-          onChange={e => {
-            if (!isPageRefreshDisabled()) {
-              return;
-            }
-            mainStorage.update({
-              open_info_bottom: e.target.checked,
-            });
-          }}
-        />
-        <InputNumber
-          value={String(main.top_increase_price)}
-          label="To top price"
-          onChange={e => {
-            if (!isPageRefreshDisabled()) {
-              return;
-            }
-            mainStorage.update({
-              top_increase_price: Number(e.target.value),
-            });
-          }}
-        />
-      </div>
-      <div className="flex flex-col items-start ml-4 justify-start">
-        <Switch
-          checked={main.auto_book}
-          label="Auto book"
-          onChange={e => {
-            if (!isPageRefreshDisabled()) {
-              return;
-            }
-            mainStorage.update({
-              auto_book: e.target.checked,
-            });
-          }}
-        />
-      </div>
-    </div>
-  );
-}
+    <div className="shadow-xl border border-b-0 gap-2 rounded-lg bg-slate-50 fixed left-1/2 -translate-x-1/2 bottom-0 z-[1001] w-full select-none">
+      <form className="grid grid-cols-4 gap-8  p-3 pb-1" onSubmit={handleSubmit(onSubmit)}>
+        {/* Auto Refresh Section */}
+        <div>
+          <div>
+            {/* <Switch label="Sound" {...register('human_like_refresh')} /> */}
+            <div className="flex justify-between">
+              <Controller
+                name="standart_refresh" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Quick setup refresh" {...field} />}
+              />
+              <Controller
+                name="human_like_refresh" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Human like refresh" {...field} />}
+              />
+            </div>
+            {!(standart_refresh || human_like_refresh) ? (
+              <Controller
+                key="refresh_interval" // Field name
+                name="refresh_interval" // Field name
+                control={control}
+                render={({ field }) => (
+                  <RangeSliderInput
+                    {...field}
+                    step={0.2}
+                    label={`Refresh every ${field.value} seconds`}
+                    onChange={v => field.onChange(v)}
+                    max={10}
+                    min={0.2}
+                  />
+                )}
+              />
+            ) : (
+              <Controller
+                key="range_refresh_interval" // Field name
+                name="range_refresh_interval" // Field name
+                control={control}
+                render={({ field }) => (
+                  <RangeSliderInput
+                    {...field}
+                    step={0.2}
+                    disabled={standart_refresh}
+                    label={`Refresh randomly between ${field.value[0]} and ${field.value[1]} seconds`}
+                    onChange={v => field.onChange(v)}
+                    max={10}
+                    min={0.2}
+                  />
+                )}
+              />
+            )}
+          </div>
+        </div>
 
-function InputNumber(props: FieldProps) {
-  return (
-    <div className="max-w-sm mx-auto w-24">
-      <label htmlFor="number-input" className="block mb-1 text-sm font-medium text-gray-900 ">
-        {props.label}
-      </label>
-      <input
-        type="number"
-        onChange={props.onChange}
-        id="number-input"
-        aria-describedby="helper-text-explanation"
-        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5"
-        placeholder="90210"
-        value={props.value}
-      />
-    </div>
-  );
-}
+        {/* View Section */}
+        <div>
+          <div>
+            <Controller
+              name="data_view" // Field name
+              control={control}
+              render={({ field }) => (
+                <Radio
+                  options={[
+                    {
+                      label: 'Old view',
+                      value: DataView.old,
+                    },
+                    {
+                      label: 'New view',
+                      value: DataView.new,
+                    },
+                    {
+                      label: 'Keep both',
+                      value: DataView.both,
+                    },
+                  ]}
+                  label="View"
+                  {...field}
+                />
+              )}
+            />
+          </div>
+        </div>
 
-function Select(props: SelectProps) {
-  return (
-    <div className="mb-2 w-full">
-      <label htmlFor="countries" className="block mb-1 text-sm font-medium text-gray-900">
-        {props.label}
-      </label>
-      <select
-        onChange={props.onChange}
-        id="countries"
-        className=" bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
-        {props.options.map(o => {
-          return (
-            <option key={o.value} selected={o.value === props.value} value={o.value}>
-              {o.label}
-            </option>
-          );
-        })}
-      </select>
-    </div>
-  );
-}
+        {/* Highlights Section */}
+        <div>
+          <div>
+            <div className="flex justify-between">
+              <Controller
+                name="newest_to_top" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Highlighted to top (news and changed)" {...field} />}
+              />
+              <Controller
+                name="auto_open_data" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Auto expand" {...field} />}
+              />
+            </div>
+            <Controller
+              name="change_price" // Field name
+              control={control}
+              render={({ field }) => (
+                <RangeSliderInput
+                  {...field}
+                  onChange={v => field.onChange(v)}
+                  step={10}
+                  label={`Notify if rate changes by ${field.value}`}
+                  max={500}
+                  min={30}
+                />
+              )}
+            />
+          </div>
+        </div>
 
-function Switch(props: { label: string; checked: boolean; onChange: (e: any) => void }) {
-  return (
-    <div className="mb-4">
-      <label className="flex-col flex items-start cursor-pointer justify-start">
-        <span className="text-sm font-medium text-gray-900 mb-1">{props.label}</span>
-        <input type="checkbox" checked={props.checked} onChange={props.onChange} className="sr-only peer" />
-        <div className="relative w-11 h-6 bg-gray-200  rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:w-5 after:h-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-      </label>
+        {/* Additional Features Section */}
+        <div>
+          <div className="flex justify-between">
+            <div>
+              <Controller
+                name="multi_tab" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Multitab" {...field} />}
+              />
+              <Controller
+                name="auto_open_tab" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Open highlighted tab" {...field} />}
+              />
+              <Controller
+                name="non_stop_refresh" // Field name
+                control={control}
+                render={({ field }) => <Switch label="Non-Stop Refresh" {...field} />}
+              />
+            </div>
+            <div>
+              {!startApp ? (
+                <Button
+                  onClick={() => {
+                    setStartApp(true);
+                  }}
+                  className="text-lg bg-[#00688d]">
+                  Start
+                </Button>
+              ) : (
+                <Button onClick={() => setStartApp(false)} className="text-lg bg-gray-400">
+                  Stop
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </form>
+      <AutoBookCollaps />
     </div>
   );
-}
+};

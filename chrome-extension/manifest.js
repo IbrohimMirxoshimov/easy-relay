@@ -19,14 +19,14 @@ const sidePanelConfig = {
 const manifest = deepmerge(
   {
     manifest_version: 3,
-    default_locale: 'en',
+    // default_locale: 'en',
     /**
      * if you want to support multiple languages, you can use the following reference
      * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Internationalization
      */
-    name: '__MSG_extensionName__',
+    name: 'Smart Relay Refresh',
     version: packageJson.version,
-    description: '__MSG_extensionDescription__',
+    description: 'Smart Relay Refresh',
     host_permissions: ['<all_urls>'],
     permissions: ['storage', 'scripting', 'tabs', 'notifications'],
     options_page: 'options/index.html',
@@ -47,7 +47,7 @@ const manifest = deepmerge(
         js: ['content/index.iife.js'],
       },
       {
-        matches: ['http://*/*', 'https://*/*', '<all_urls>'],
+        matches: ['https://admin.mehrkutubxonasi.uz/app/dashboard', 'https://relay.amazon.com/loadboard/search'],
         js: ['content-ui/index.iife.js'],
       },
       {
@@ -58,7 +58,7 @@ const manifest = deepmerge(
     devtools_page: 'devtools/index.html',
     web_accessible_resources: [
       {
-        resources: ['*.js', '*.css', '*.svg', 'icon-128.png', 'icon-34.png'],
+        resources: ['*.js', '*.css', '*.svg', 'icon-128.png', 'icon-34.png', '*.wav'],
         matches: ['*://*/*'],
       },
     ],

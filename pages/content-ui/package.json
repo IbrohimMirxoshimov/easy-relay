@@ -25,14 +25,20 @@
   "dependencies": {
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
-    "@extension/ui": "workspace:*"
+    "@extension/ui": "workspace:*",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.468.0",
+    "react-hook-form": "^7.54.0",
+    "react-range": "^1.10.0"
   },
   "devDependencies": {
     "@extension/hmr": "workspace:*",
     "@extension/tailwindcss-config": "workspace:*",
     "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*",
+    "@types/lodash": "^4.17.13",
     "concurrently": "^9.0.1",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "daisyui": "^4.12.20"
   }
 }
