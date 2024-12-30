@@ -2,16 +2,16 @@ import { Button } from '@extension/ui';
 import { debounce } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Control, Controller, SubmitHandler, useForm, UseFormGetValues, useWatch } from 'react-hook-form';
+import { Controller, SubmitHandler, useForm, UseFormGetValues } from 'react-hook-form';
 import { AutoBookCollaps } from './AutoBookCollaps';
 import { Radio } from './Radio';
 import { RangeSliderInput } from './RangeSliderInput';
-import { ShipmentUI } from './ShipmentExpanded';
 import { Switch } from './Switch';
-import { parseLoadList } from './parser';
+import { Relay } from './relay.type';
 import { ControlPanelState, DataView, DataViewType } from './type';
-import { createRandomInterval } from './utils';
 import { useFetchApiListener } from './useFetchApiListener';
+import { createRandomInterval } from './utils';
+import { LoadTables } from './ShipmentExpanded';
 
 function getRefreshButton() {
   return document.querySelector<HTMLButtonElement>('#utility-bar div.refresh-and-chat-box button');
@@ -113,26 +113,26 @@ type RefreshManagetConfig = {
   auto_expand: boolean;
   data_view_type: DataViewType;
 };
-type ItemData = {
-  id: string;
-  price: number;
-};
 
-function getDiff(new_data: ItemData[], current: ItemData[], change: number): ItemData[] {
+function getDiff(
+  new_data: Relay.WorkOpportunity[],
+  current: Relay.WorkOpportunity[],
+  change: number,
+): Relay.WorkOpportunity[] {
   const currentMap = new Map<string, number>();
   // Populate the map with current items: key is id, value is price
   for (const item of current) {
-    currentMap.set(item.id, item.price);
+    currentMap.set(item.id, item.payout.value);
   }
 
-  const result: ItemData[] = [];
+  const result: Relay.WorkOpportunity[] = [];
 
   for (const newItem of new_data) {
     const oldPrice = currentMap.get(newItem.id);
     if (oldPrice === undefined) {
       // New item (id does not exist in the current data)
       result.push(newItem);
-    } else if (Math.abs(newItem.price - oldPrice) >= change) {
+    } else if (newItem.payout.value - oldPrice >= change) {
       // Existing item with significant price change
       result.push(newItem);
     }
@@ -142,7 +142,7 @@ function getDiff(new_data: ItemData[], current: ItemData[], change: number): Ite
 }
 
 const gref: {
-  items: ItemData[];
+  items: Relay.WorkOpportunity[];
 } = {
   items: [],
 };
@@ -171,6 +171,10 @@ function moveLoadCardToTop(ids: string[]) {
     loadList.insertBefore(targetLoadCard, loadList.firstChild);
   }
 
+  if (targetLoadCard) {
+    targetLoadCard.style.background = 'rgb(182, 227, 255)';
+  }
+
   return targetLoadCard;
 }
 
@@ -190,8 +194,9 @@ function clickRowActionOverset(cb: (el: HTMLDivElement, e: Event) => void) {
 }
 
 function insertToDom(card: HTMLDivElement) {
-  // Create a root div dynamically
-  const prevSibling = card.firstChild as HTMLDivElement;
+  const id = card.querySelector('div[id]')?.id || '';
+  const wo = gref.items.find(i => i.id === id);
+  if (!wo) return;
 
   const rootDiv = document.createElement('div');
   rootDiv.id = 'react-shipment-root';
@@ -200,39 +205,15 @@ function insertToDom(card: HTMLDivElement) {
   // Render the React component
   const root = ReactDOM.createRoot(rootDiv);
 
-  const parsed = parseLoadList(card);
   root.render(
-    <ShipmentUI
-      data={{
-        locations: [
-          {
-            address: parsed.pickup.location,
-            id: `${parsed.pickup.stopNumber}`,
-            arrival: parsed.pickup.time,
-            departure: '{departure}',
-            equipment: parsed.equipmentType,
-            status: '{status}',
-            weight: 0,
-          },
-          {
-            address: parsed.delivery.location,
-            id: `${parsed.delivery.stopNumber}`,
-            arrival: '{arrival}',
-            departure: parsed.delivery.time,
-            equipment: parsed.equipmentType,
-            status: '{status}',
-            weight: 0,
-          },
-        ],
-        totalCost: parsed.payment.total,
-        totalDistance: parsed.totalDistance,
-        totalTime: parsed.duration,
-      }}
-      onClear={() => {
-        prevSibling.classList.remove('opened');
-        root.unmount();
-        rootDiv.remove();
-      }}
+    <LoadTables
+      workOpportunity={wo}
+
+      // onClear={() => {
+      //   prevSibling.classList.remove('opened');
+      //   root.unmount();
+      //   rootDiv.remove();
+      // }}
     />,
   );
 }
@@ -252,83 +233,34 @@ class RefreshManager {
   start() {
     this.stop = createRandomInterval(async () => {
       console.log('run every: ' + this.config.range.join(', '));
-      if (clickRefreshButton()) {
-        const resolved = await watchDomPromise();
-
-        if (!resolved) {
-          return;
-        }
-
-        if (this.config.data_view_type !== DataView.new) {
-          clickRowActionOverset((el_with_id, event) => {
-            if (!el_with_id) return;
-
-            if (this.config.data_view_type === DataView.both || this.config.data_view_type === DataView.old) {
-              if (!el_with_id.classList.contains('opened')) {
-                el_with_id.classList.add('opened');
-                insertToDom(el_with_id.parentElement as any);
-
-                if (this.config.data_view_type === DataView.old) {
-                  event.stopPropagation();
-                }
-              }
-            }
-
-            if (this.config.data_view_type === DataView.both) {
-              // @ts-ignore
-              el_with_id?.click();
-            }
-          });
-        }
-
-        // get content
-
-        const listItems = Array.from(
-          document.querySelectorAll('#active-tab-body > div > div > div > div:nth-child(2) > div.load-list .load-card'),
-        );
-
-        const data = listItems
-          .map(item => {
-            const id = item.querySelector('[id]')?.getAttribute('id');
-            const price = Number(
-              item.querySelector<HTMLSpanElement>('.wo-total_payout')?.textContent?.trim().slice(1).replace(/,/g, ''),
-            );
-
-            if (!id || !price) {
-              return;
-            }
-
-            return { id, price };
-          })
-          .filter(a => a !== undefined);
-
-        if (gref.items.length === 0) {
-          gref.items = data;
-        }
-
-        const diffs = getDiff(data, gref.items, this.config.change_price);
-
-        gref.items = data;
-
-        if (!diffs.length) return;
-
-        const card = moveLoadCardToTop(diffs.map(a => a.id));
-
-        if (!card) return;
-
-        this.running = false;
-        this.stop();
-        this.onStop();
-        audio.play();
-
-        card.style.background = 'rgb(182, 227, 255)';
-
-        if (this.config.auto_expand) {
-          // @ts-ignore
-          card.firstChild?.click();
-        }
-      }
+      clickRefreshButton();
     }, this.config.range);
+  }
+
+  clickOverset() {
+    if (this.config.data_view_type !== DataView.new) {
+      clickRowActionOverset((el_with_id, event) => {
+        console.log('clicked', this.config);
+
+        if (!el_with_id) return;
+
+        if (this.config.data_view_type === DataView.both || this.config.data_view_type === DataView.old) {
+          if (!el_with_id.classList.contains('opened')) {
+            el_with_id.classList.add('opened');
+            insertToDom(el_with_id.parentElement as any);
+
+            if (this.config.data_view_type === DataView.old) {
+              event.stopPropagation();
+            }
+          }
+        }
+
+        if (this.config.data_view_type === DataView.both) {
+          // @ts-ignore
+          el_with_id?.click();
+        }
+      });
+    }
   }
 
   stop() {}
@@ -403,6 +335,37 @@ const ControlPanel = () => {
 
   useFetchApiListener({
     onResponse: data => {
+      const prev_items = [...gref.items];
+
+      // clickOverset uchun kerak bo'ladi
+      gref.items = data.response.workOpportunities;
+
+      watchDomPromise().then(r => {
+        if (!r) return;
+
+        refreshManager.clickOverset();
+      });
+
+      if (prev_items.length === 0) return;
+
+      const diffs = getDiff(gref.items, prev_items, refreshManager.config.change_price);
+
+      if (!diffs.length) return;
+
+      const card = moveLoadCardToTop(diffs.map(a => a.id));
+
+      if (!card) return;
+
+      refreshManager.running = false;
+      refreshManager.stop();
+      refreshManager.onStop();
+      audio.play();
+
+      if (refreshManager.config.auto_expand) {
+        // @ts-ignore
+        card.firstChild?.click();
+      }
+
       console.log(data);
     },
   });
