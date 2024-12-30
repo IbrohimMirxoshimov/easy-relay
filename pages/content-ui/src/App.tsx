@@ -96,7 +96,7 @@ const audio = new Audio(chrome.runtime.getURL('content-ui/sound-1.wav'));
  */
 function insertStyleTag() {
   const style = document.createElement('style');
-  style.innerHTML = `#utility-bar { bottom: 130px !important; }`;
+  style.innerHTML = `#utility-bar { bottom: 130px !important; }\n#active-tab-body { padding-bottom: 200px; }`;
   document.head.appendChild(style);
 }
 
