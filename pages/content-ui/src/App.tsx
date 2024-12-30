@@ -11,6 +11,7 @@ import { Switch } from './Switch';
 import { parseLoadList } from './parser';
 import { ControlPanelState, DataView, DataViewType } from './type';
 import { createRandomInterval } from './utils';
+import { useFetchApiListener } from './useFetchApiListener';
 
 function getRefreshButton() {
   return document.querySelector<HTMLButtonElement>('#utility-bar div.refresh-and-chat-box button');
@@ -87,7 +88,8 @@ function watchDom(onAppear: () => void) {
   return c;
 }
 
-const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/765/765-preview.mp3');
+const audio = new Audio(chrome.runtime.getURL('content-ui/sound-1.wav'));
+
 /**
  * function to insert style tag to head with body of #utility-bar bottom 130px with important
  * @returns
@@ -248,8 +250,6 @@ class RefreshManager {
     this.config.range = [1, 20];
   }
   start() {
-    console.log('started', this.config.range);
-
     this.stop = createRandomInterval(async () => {
       console.log('run every: ' + this.config.range.join(', '));
       if (clickRefreshButton()) {
@@ -340,31 +340,6 @@ class RefreshManager {
     }
   }
 }
-// const originalFetch = window.fetch;
-
-// setInterval(() => {
-//   window.fetch = async (...args) => {
-//     if (args[0].toString() === '/api/loadboard/search') {
-//       console.log('1111');
-//     }
-//     const response = await originalFetch(...args);
-//     console.log(args);
-//     return response;
-//   };
-// }, 100);
-
-function ValueRenderForm({
-  render,
-  ...props
-}: {
-  control: Control<ControlPanelState, any>;
-  name: string;
-  render: (value: any) => React.ReactNode;
-}) {
-  const value = useWatch(props);
-
-  return render(value);
-}
 
 const ControlPanel = () => {
   const { handleSubmit, watch, control, setValue, getValues } = useForm<ControlPanelState>({
@@ -425,6 +400,12 @@ const ControlPanel = () => {
     }, 200),
     [],
   );
+
+  useFetchApiListener({
+    onResponse: data => {
+      console.log(data);
+    },
+  });
 
   useEffect(() => {
     const { unsubscribe } = watch((value, info) => {
