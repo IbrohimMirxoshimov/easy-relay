@@ -239,23 +239,15 @@ class RefreshManager {
 
   clickOverset() {
     if (this.config.data_view_type !== DataView.new) {
-      clickRowActionOverset((el_with_id, event) => {
-        if (!el_with_id) return;
-
-        if (this.config.data_view_type === DataView.both || this.config.data_view_type === DataView.old) {
+      clickRowActionOverset(el_with_id => {
+        if (this.config.data_view_type === DataView.both && el_with_id) {
           if (!el_with_id.classList.contains('opened')) {
             el_with_id.classList.add('opened');
             insertToDom(el_with_id.parentElement as any);
-
-            if (this.config.data_view_type === DataView.old) {
-              event.stopPropagation();
-            }
+          } else {
+            el_with_id.classList.remove('opened');
+            el_with_id.nextSibling?.remove();
           }
-        }
-
-        if (this.config.data_view_type === DataView.both) {
-          // @ts-ignore
-          el_with_id?.click();
         }
       });
     }
@@ -327,6 +319,7 @@ const ControlPanel = () => {
       refreshManager.config.data_view_type = values.data_view;
 
       refreshManager.restart();
+      refreshManager.clickOverset();
     }, 200),
     [],
   );
