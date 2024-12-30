@@ -6,7 +6,7 @@ export const RangeSliderInput: React.FC<
 > = props => {
   const values = props.value || [];
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-w-72">
       <div className="mb-2 text-sm font-semibold text-gray-700">{props.label}</div>
       <Range
         label="Select your value"
@@ -47,8 +47,8 @@ export const RangeSliderInput: React.FC<
             key={props.key}
             style={{
               ...props.style,
-              height: '22px',
-              width: '22px',
+              height: '18px',
+              width: '18px',
               borderRadius: '4px',
               backgroundColor: '#FFF',
               display: 'flex',
@@ -59,13 +59,14 @@ export const RangeSliderInput: React.FC<
             <div
               style={{
                 position: 'absolute',
-                bottom: '-24px',
+                bottom: '-22px',
                 color: '#000',
                 fontWeight: 'bold',
                 fontSize: '14px',
                 fontFamily: 'Arial,Helvetica Neue,Helvetica,sans-serif',
                 padding: '0px 2px',
                 borderRadius: '4px',
+                lineHeight: "1.3",
                 backgroundColor: '#b6e3ff',
               }}>
               {values[index].toFixed(1)}

@@ -12,6 +12,7 @@ import { ControlPanelState, DataView, DataViewType } from './type';
 import { useFetchApiListener } from './useFetchApiListener';
 import { createRandomInterval } from './utils';
 import { LoadTables } from './ShipmentExpanded';
+import { Pause, Play } from 'lucide-react';
 
 function getRefreshButton() {
   return document.querySelector<HTMLButtonElement>('#utility-bar div.refresh-and-chat-box button');
@@ -407,159 +408,137 @@ const ControlPanel = () => {
   }, [startApp]);
 
   return (
-    <div className="shadow-xl border border-b-0 gap-2 rounded-lg bg-slate-50 fixed left-1/2 -translate-x-1/2 bottom-0 z-[1001] w-full select-none">
-      <form className="grid grid-cols-4 gap-8  p-3 pb-1" onSubmit={handleSubmit(onSubmit)}>
-        {/* Auto Refresh Section */}
-        <div>
-          <div>
-            {/* <Switch label="Sound" {...register('human_like_refresh')} /> */}
-            <div className="flex justify-between">
-              <Controller
-                name="standart_refresh" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Quick setup refresh" {...field} />}
-              />
-              <Controller
-                name="human_like_refresh" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Human like refresh" {...field} />}
-              />
-            </div>
-            {!(standart_refresh || human_like_refresh) ? (
-              <Controller
-                key="refresh_interval" // Field name
-                name="refresh_interval" // Field name
-                control={control}
-                render={({ field }) => (
-                  <RangeSliderInput
-                    {...field}
-                    step={0.2}
-                    label={`Refresh every ${field.value} seconds`}
-                    onChange={v => field.onChange(v)}
-                    max={10}
-                    min={0.2}
-                  />
-                )}
-              />
-            ) : (
-              <Controller
-                key="range_refresh_interval" // Field name
-                name="range_refresh_interval" // Field name
-                control={control}
-                render={({ field }) => (
-                  <RangeSliderInput
-                    {...field}
-                    step={0.2}
-                    disabled={standart_refresh}
-                    label={`Refresh randomly between ${field.value[0]} and ${field.value[1]} seconds`}
-                    onChange={v => field.onChange(v)}
-                    max={10}
-                    min={0.2}
-                  />
-                )}
+    <div className="shadow-xl border border-b-0 rounded-lg bg-slate-50 fixed left-1/2 -translate-x-1/2 bottom-0 z-[1001] w-full select-none">
+      <form className="flex gap-10 pt-2 px-6 pb-2" onSubmit={handleSubmit(onSubmit)}>
+        <div className="flex flex-col">
+          <Controller
+            name="standart_refresh" // Field name
+            control={control}
+            render={({ field }) => <Switch label="Quick setup refresh" {...field} />}
+          />
+          <Controller
+            name="human_like_refresh" // Field name
+            control={control}
+            render={({ field }) => <Switch label="Human like refresh" {...field} />}
+          />
+        </div>
+
+        {!(standart_refresh || human_like_refresh) ? (
+          <Controller
+            key="refresh_interval" // Field name
+            name="refresh_interval" // Field name
+            control={control}
+            render={({ field }) => (
+              <RangeSliderInput
+                {...field}
+                step={0.2}
+                label={`Refresh every ${field.value} seconds`}
+                onChange={v => field.onChange(v)}
+                max={10}
+                min={0.2}
               />
             )}
-          </div>
-        </div>
+          />
+        ) : (
+          <Controller
+            key="range_refresh_interval" // Field name
+            name="range_refresh_interval" // Field name
+            control={control}
+            render={({ field }) => (
+              <RangeSliderInput
+                {...field}
+                step={0.2}
+                disabled={standart_refresh}
+                label={`Refresh randomly between ${field.value[0]} and ${field.value[1]} s.`}
+                onChange={v => field.onChange(v)}
+                max={10}
+                min={0.2}
+              />
+            )}
+          />
+        )}
 
-        {/* View Section */}
-        <div>
-          <div>
-            <Controller
-              name="data_view" // Field name
-              control={control}
-              render={({ field }) => (
-                <Radio
-                  options={[
-                    {
-                      label: 'Old view',
-                      value: DataView.old,
-                    },
-                    {
-                      label: 'New view',
-                      value: DataView.new,
-                    },
-                    {
-                      label: 'Keep both',
-                      value: DataView.both,
-                    },
-                  ]}
-                  label="View"
-                  {...field}
-                />
-              )}
+        <Controller
+          name="data_view" // Field name
+          control={control}
+          render={({ field }) => (
+            <Radio
+              options={[
+                {
+                  label: 'New view',
+                  value: DataView.new,
+                },
+                {
+                  label: 'Keep both',
+                  value: DataView.both,
+                },
+              ]}
+              label="View"
+              {...field}
             />
-          </div>
-        </div>
+          )}
+        />
 
-        {/* Highlights Section */}
-        <div>
-          <div>
-            <div className="flex justify-between">
-              <Controller
-                name="newest_to_top" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Highlighted to top (news and changed)" {...field} />}
-              />
-              <Controller
-                name="auto_open_data" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Auto expand" {...field} />}
-              />
-            </div>
-            <Controller
-              name="change_price" // Field name
-              control={control}
-              render={({ field }) => (
-                <RangeSliderInput
-                  {...field}
-                  onChange={v => field.onChange(v)}
-                  step={10}
-                  label={`Notify if rate changes by ${field.value}`}
-                  max={500}
-                  min={30}
-                />
-              )}
+        <div className="flex flex-col">
+          <Controller
+            name="newest_to_top" // Field name
+            control={control}
+            render={({ field }) => <Switch label="Highlighted to top" {...field} />}
+          />
+          <Controller
+            name="auto_open_data" // Field name
+            control={control}
+            render={({ field }) => <Switch label="Auto expand" {...field} />}
+          />
+        </div>
+        <Controller
+          name="change_price" // Field name
+          control={control}
+          render={({ field }) => (
+            <RangeSliderInput
+              {...field}
+              onChange={v => field.onChange(v)}
+              step={10}
+              label={`Notify if rate changes by $${field.value}`}
+              max={500}
+              min={30}
             />
-          </div>
-        </div>
-
-        {/* Additional Features Section */}
-        <div>
-          <div className="flex justify-between">
-            <div>
-              <Controller
-                name="multi_tab" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Multitab" {...field} />}
-              />
-              <Controller
+          )}
+        />
+        <div className="cursor-not-allowed">
+          <div className="pointer-events-none bg-[#efeafa] border-2 border-dashed border-[#bc8bff] rounded-lg p-1">
+            <Controller
+              name="multi_tab" // Field name
+              control={control}
+              render={({ field }) => <Switch label="Multitab" {...field} />}
+            />
+            {/* <Controller
                 name="auto_open_tab" // Field name
                 control={control}
                 render={({ field }) => <Switch label="Open highlighted tab" {...field} />}
-              />
-              <Controller
-                name="non_stop_refresh" // Field name
-                control={control}
-                render={({ field }) => <Switch label="Non-Stop Refresh" {...field} />}
-              />
-            </div>
-            <div>
-              {!startApp ? (
-                <Button
-                  onClick={() => {
-                    setStartApp(true);
-                  }}
-                  className="text-lg bg-[#00688d]">
-                  Start
-                </Button>
-              ) : (
-                <Button onClick={() => setStartApp(false)} className="text-lg bg-gray-400">
-                  Stop
-                </Button>
-              )}
-            </div>
+              /> */}
+            <Controller
+              name="non_stop_refresh" // Field name
+              control={control}
+              render={({ field }) => <Switch className={'mb-0'} label="Non-Stop Refresh" {...field} />}
+            />
           </div>
+        </div>
+
+        <div className='flex flex-1 justify-end'>
+          {!startApp ? (
+            <Button
+              onClick={() => {
+                setStartApp(true);
+              }}
+              className="text-2xl py-2 bg-[#00688d]">
+              <Play />
+            </Button>
+          ) : (
+            <Button onClick={() => setStartApp(false)} className="text-2xl py-2 bg-gray-400">
+              <Pause />
+            </Button>
+          )}
         </div>
       </form>
       <AutoBookCollaps />
