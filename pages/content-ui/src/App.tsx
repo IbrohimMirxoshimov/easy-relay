@@ -462,19 +462,16 @@ const ControlPanel = () => {
           name="data_view" // Field name
           control={control}
           render={({ field }) => (
-            <Radio
-              options={[
-                {
-                  label: 'New view',
-                  value: DataView.new,
-                },
-                {
-                  label: 'Keep both',
-                  value: DataView.both,
-                },
-              ]}
-              label="View"
-              {...field}
+            <Switch
+              onChange={e => {
+                if (e.target.checked) {
+                  field.onChange(DataView.both);
+                } else {
+                  field.onChange(DataView.new);
+                }
+              }}
+              label="Old & new view"
+              value={field.value === DataView.both}
             />
           )}
         />
@@ -525,7 +522,7 @@ const ControlPanel = () => {
           </div>
         </div>
 
-        <div className='flex flex-1 justify-end'>
+        <div className="flex flex-1 justify-end">
           {!startApp ? (
             <Button
               onClick={() => {
