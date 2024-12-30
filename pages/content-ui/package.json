@@ -38,7 +38,6 @@
     "@extension/vite-config": "workspace:*",
     "@types/lodash": "^4.17.13",
     "concurrently": "^9.0.1",
-    "cross-env": "^7.0.3",
-    "daisyui": "^4.12.20"
+    "cross-env": "^7.0.3"
   }
 }
