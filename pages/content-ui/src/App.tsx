@@ -68,7 +68,7 @@ function watchDomPromise() {
     t = setTimeout(() => {
       c();
       res(false);
-    }, 1000 * 30);
+    }, 1000 * 10);
   });
 }
 
@@ -154,17 +154,18 @@ function moveLoadCardToTop(ids: string[]) {
   if (!loadList) return;
 
   let targetLoadCard: HTMLDivElement | null = null;
+  console.log(ids);
 
   for (const targetId of ids) {
     // Find the card with the matching ID
-    const targetCard = loadList.querySelector(`.load-card div[id="${targetId}"]`);
+    const targetCard = loadList.querySelector(`div > div[id="${targetId}"]`);
     if (!targetCard) return;
 
     // Get the parent load-card element
     targetLoadCard = targetCard.parentElement as HTMLDivElement;
 
     // set light green background to targetLoadCard
-    targetLoadCard.style.background = 'rgb(224 255 222)';
+    targetLoadCard.setAttribute('style', 'background:rgb(224 255 222) !important');
 
     if (!targetLoadCard) return;
 
@@ -172,8 +173,9 @@ function moveLoadCardToTop(ids: string[]) {
     loadList.insertBefore(targetLoadCard, loadList.firstChild);
   }
 
+  // set light green background to targetLoadCard
   if (targetLoadCard) {
-    targetLoadCard.style.background = 'rgb(182, 227, 255)';
+    targetLoadCard.setAttribute('style', 'background:rgb(182, 227, 255) !important');
   }
 
   return targetLoadCard;
@@ -181,7 +183,7 @@ function moveLoadCardToTop(ids: string[]) {
 
 function clickRowActionOverset(cb: (el: HTMLDivElement, e: Event) => void) {
   // Get the load-list container
-  const cards = document.querySelectorAll<HTMLDivElement>('.load-list .load-card');
+  const cards = document.querySelectorAll<HTMLDivElement>('.load-list > div');
 
   if (!cards || !cards.length) return;
 
@@ -232,17 +234,12 @@ class RefreshManager {
     this.config.range = [1, 20];
   }
   start() {
-    this.stop = createRandomInterval(async () => {
-      console.log('run every: ' + this.config.range.join(', '));
-      clickRefreshButton();
-    }, this.config.range);
+    this.stop = createRandomInterval(clickRefreshButton, this.config.range);
   }
 
   clickOverset() {
     if (this.config.data_view_type !== DataView.new) {
       clickRowActionOverset((el_with_id, event) => {
-        console.log('clicked', this.config);
-
         if (!el_with_id) return;
 
         if (this.config.data_view_type === DataView.both || this.config.data_view_type === DataView.old) {
@@ -335,7 +332,7 @@ const ControlPanel = () => {
   );
 
   useFetchApiListener({
-    onResponse: data => {
+    onResponse: async data => {
       const prev_items = [...gref.items];
 
       // clickOverset uchun kerak bo'ladi
@@ -353,21 +350,21 @@ const ControlPanel = () => {
 
       if (!diffs.length) return;
 
-      const card = moveLoadCardToTop(diffs.map(a => a.id));
-
-      if (!card) return;
-
       refreshManager.running = false;
       refreshManager.stop();
       refreshManager.onStop();
       audio.play();
 
+      await watchDomPromise();
+
+      const card = moveLoadCardToTop(diffs.map(a => a.id));
+
+      if (!card) return;
+
       if (refreshManager.config.auto_expand) {
         // @ts-ignore
         card.firstChild?.click();
       }
-
-      console.log(data);
     },
   });
 
