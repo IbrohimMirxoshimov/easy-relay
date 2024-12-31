@@ -1,19 +1,6 @@
-import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
 import { Relay } from './relay.type';
-
-function formatDuration(seconds: number): string {
-  if (seconds <= 0) return '0m';
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  let result = '';
-  if (hours > 0) result += `${hours}h `;
-  if (minutes > 0) result += `${minutes}m`;
-
-  return result.trim();
-}
 
 interface LoadTablesProps {
   workOpportunity: Relay.WorkOpportunity;
@@ -27,9 +14,7 @@ export const LoadTables: React.FC<LoadTablesProps> = ({ workOpportunity }) => {
           load={load}
           index={index}
           totalMiles={load.distance.value}
-          duration={formatDuration(workOpportunity.totalDuration / 1000)}
           payout={load.payout.value}
-          loadType={load.loadType.toLowerCase()}
         />
       ))}
     </div>
@@ -40,13 +25,11 @@ interface LoadTableProps {
   load: Relay.Load;
   index: number;
   totalMiles: number;
-  duration: string;
   payout: number;
-  loadType: string;
 }
 
-export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, duration, payout, loadType }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, payout }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -56,7 +39,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
         onClick={toggleExpand}
         style={{
           backgroundColor: '#F3F4F6',
-          padding: '0.5rem',
+          padding: '1rem 1rem',
           cursor: 'pointer',
         }}
         onMouseOver={e => (e.currentTarget.style.backgroundColor = '#E5E7EB')}
@@ -67,7 +50,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <MapPin style={{ width: '1rem', height: '1rem', color: 'rgb(5, 93, 123)' }} />
               <span style={{ fontWeight: 500 }}>
-                {load.stops[0].location.city} → {load.stops[load.stops.length - 1].location.city}
+                {getCityAndState(load.stops[0])} → {getCityAndState(load.stops[load.stops.length - 1])}
               </span>
             </div>
           </div>
@@ -78,7 +61,6 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>${payout.toFixed(2)}</div>
-                <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>{loadType}</div>
               </div>
             </div>
             {isExpanded ? (
@@ -153,7 +135,9 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
-                        <span style={{ fontSize: '0.875rem', color: 'rgb(5, 93, 123)' }}>{stopIndex + 1}</span>
+                        <span style={{ fontSize: '0.875rem', color: 'rgb(5, 93, 123)' }}>
+                          {stop.stopSequenceNumber}
+                        </span>
                       </div>
                       <div>
                         <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{stop.location.line1}</div>
@@ -165,10 +149,20 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontSize: '0.875rem' }}>
-                      {stop.trailerDetails[0]?.assetType || "53' Trailer"}
-                      <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                        {stop.loadingType || stop.unloadingType}
+                      <div>
+                        {renderLoadType(load.loadType)} {stop.trailerDetails[0]?.assetType || "53' Trailer"}
                       </div>
+                      <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                        {stop.loadingType || stop.unloadingType}
+                      </span>
+                      {stop.weight?.value && stop.weight?.value > 10 ? (
+                        <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+                          {' | '}
+                          {formatNumberShort(stop.weight.value)} lb
+                        </span>
+                      ) : (
+                        <></>
+                      )}
                     </div>
                   </td>
                   <td style={{ padding: '0.75rem 1rem' }}>
@@ -180,6 +174,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
                         hour: '2-digit',
                         minute: '2-digit',
                         timeZoneName: 'short',
+                        hour12: false,
                       })}
                     </div>
                   </td>
@@ -192,6 +187,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
                         hour: '2-digit',
                         minute: '2-digit',
                         timeZoneName: 'short',
+                        hour12: false,
                       })}
                     </div>
                   </td>
@@ -204,3 +200,32 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, d
     </div>
   );
 };
+
+function formatNumberShort(value: number): string {
+  if (value >= 1_000) {
+    return (value / 1_000).toFixed(0) + 'K';
+  }
+
+  return value.toString();
+}
+
+function renderLoadType(loadType: Relay.LoadType) {
+  switch (loadType) {
+    case Relay.LoadType.Loaded:
+      return <i className="fa fa-circle"></i>;
+    case Relay.LoadType.Bobtail:
+      return 'B';
+    case Relay.LoadType.Empty:
+      return <i className="fa fa-circle-o"></i>;
+    default:
+      return '@';
+  }
+}
+
+function getCityAndState(stop: Relay.Stop) {
+  if (stop.location.state) {
+    return `${stop.location.city}, ${stop.location.state}`;
+  }
+
+  return stop.location.city;
+}
