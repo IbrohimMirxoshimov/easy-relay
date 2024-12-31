@@ -425,7 +425,7 @@ const ControlPanel = () => {
             key="refresh_interval" // Field name
             name="refresh_interval" // Field name
             control={control}
-            render={({ field }) => (
+            render={({ field: { ref, ...field } }) => (
               <RangeSliderInput
                 {...field}
                 step={0.2}
@@ -441,7 +441,7 @@ const ControlPanel = () => {
             key="range_refresh_interval" // Field name
             name="range_refresh_interval" // Field name
             control={control}
-            render={({ field }) => (
+            render={({ field: { ref, ...field } }) => (
               <RangeSliderInput
                 {...field}
                 step={0.2}
@@ -460,7 +460,7 @@ const ControlPanel = () => {
           control={control}
           render={({ field }) => (
             <Switch
-              onChange={e => {
+              onChange={(e: { target: { checked: boolean } }) => {
                 if (e.target.checked) {
                   field.onChange(DataView.both);
                 } else {
@@ -488,7 +488,7 @@ const ControlPanel = () => {
         <Controller
           name="change_price" // Field name
           control={control}
-          render={({ field }) => (
+          render={({ field: { ref, ...field } }) => (
             <RangeSliderInput
               {...field}
               onChange={v => field.onChange(v)}
