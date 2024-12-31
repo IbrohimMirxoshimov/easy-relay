@@ -3,7 +3,6 @@ import '@src/NewTab.scss';
 import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { Button } from '@extension/ui';
-import { t } from '@extension/i18n';
 
 const NewTab = () => {
   const theme = useStorage(exampleThemeStorage);
@@ -12,7 +11,6 @@ const NewTab = () => {
   const goGithubSite = () =>
     chrome.tabs.create({ url: 'https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite' });
 
-  console.log(t('hello', 'World'));
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
       <header className={`App-header ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
@@ -24,11 +22,11 @@ const NewTab = () => {
         </p>
         <h6>The color of this paragraph is defined using SASS.</h6>
         <Button className="mt-4" onClick={exampleThemeStorage.toggle} theme={theme}>
-          {t('toggleTheme')}
+          {'toggleTheme'}
         </Button>
       </header>
     </div>
   );
 };
 
-export default withErrorBoundary(withSuspense(NewTab, <div>{t('loading')}</div>), <div> Error Occur </div>);
+export default withErrorBoundary(withSuspense(NewTab, <div>{'loading'}</div>), <div> Error Occur </div>);

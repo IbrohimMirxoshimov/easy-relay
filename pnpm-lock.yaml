@@ -289,7 +289,6 @@ importers:
 
   pages/new-tab:
     specifiers:
-      '@extension/i18n': workspace:*
       '@extension/shared': workspace:*
       '@extension/storage': workspace:*
       '@extension/tailwindcss-config': workspace:*
@@ -300,7 +299,6 @@ importers:
       postcss-load-config: ^6.0.1
       sass: 1.79.4
     dependencies:
-      '@extension/i18n': link:../../packages/i18n
       '@extension/shared': link:../../packages/shared
       '@extension/storage': link:../../packages/storage
       '@extension/ui': link:../../packages/ui
