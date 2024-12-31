@@ -1,18 +1,17 @@
 import { Button } from '@extension/ui';
 import { debounce } from 'lodash';
+import { Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Controller, SubmitHandler, useForm, UseFormGetValues } from 'react-hook-form';
 import { AutoBookCollaps } from './AutoBookCollaps';
-import { Radio } from './Radio';
 import { RangeSliderInput } from './RangeSliderInput';
+import { LoadTables } from './ShipmentExpanded';
 import { Switch } from './Switch';
 import { Relay } from './relay.type';
 import { ControlPanelState, DataView, DataViewType } from './type';
 import { useFetchApiListener } from './useFetchApiListener';
 import { createRandomInterval } from './utils';
-import { LoadTables } from './ShipmentExpanded';
-import { Pause, Play } from 'lucide-react';
 
 function getRefreshButton() {
   return document.querySelector<HTMLButtonElement>('#utility-bar div.refresh-and-chat-box button');
