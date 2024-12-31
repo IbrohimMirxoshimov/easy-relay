@@ -97,7 +97,14 @@ const audio = new Audio(chrome.runtime.getURL('content-ui/sound-1.wav'));
  */
 function insertStyleTag() {
   const style = document.createElement('style');
-  style.innerHTML = `#utility-bar { bottom: 105px !important; }\n#active-tab-body { padding-bottom: 200px; }`;
+  style.innerHTML = `#utility-bar { bottom: 105px !important; }
+#active-tab-body { padding-bottom: 200px; }
+@media (min-width: 900px) {
+  .chat-box-position {
+    right: 1%;
+    bottom: 13%;
+  }
+}`;
   document.head.appendChild(style);
 }
 
