@@ -343,6 +343,8 @@ const ControlPanel = () => {
         refreshManager.clickOverset();
       });
 
+      if (!refreshManager.running) return;
+
       if (prev_items.length === 0) return;
 
       const diffs = getDiff(gref.items, prev_items, refreshManager.config.change_price);

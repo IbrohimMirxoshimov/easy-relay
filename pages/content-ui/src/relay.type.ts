@@ -175,14 +175,11 @@ export namespace Relay {
   export enum EquipmentType {
     FiftyThreeFootContainer = 'FIFTY_THREE_FOOT_CONTAINER',
     FiftyThreeFootTruck = 'FIFTY_THREE_FOOT_TRUCK',
+    CubeTruck = 'CUBE_TRUCK',
+    TwentySixFootBoxTruck = 'TWENTY_SIX_FOOT_BOX_TRUCK',
   }
 
-  export enum ExistingSubCarrierName {
-    Azng = 'AZNG',
-    Aznu = 'AZNU',
-    Ncsl = 'NCSL',
-    Rlb1 = 'RLB1',
-  }
+  type ExistingSubCarrierName = string;
 
   export enum LoadType {
     Bobtail = 'BOBTAIL',
@@ -199,7 +196,7 @@ export namespace Relay {
     stopType: StopType;
     stopSequenceNumber: number;
     location: Location;
-    locationCode: string;
+    locationCode?: string;
     weight: Deadhead | null;
     actions: Action[];
     trailerDetails: TrailerDetail[];
@@ -291,10 +288,12 @@ export namespace Relay {
 
   export enum TransitOperatorType {
     SingleDriver = 'SINGLE_DRIVER',
+    TeamDriver = 'TEAM_DRIVER',
   }
 
   export enum WorkOpportunityType {
     OneWay = 'ONE_WAY',
+    RoundTrip = 'ROUND_TRIP',
   }
 
   export enum WorkType {

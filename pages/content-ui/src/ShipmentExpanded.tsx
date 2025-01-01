@@ -15,6 +15,7 @@ export const LoadTables: React.FC<LoadTablesProps> = ({ workOpportunity }) => {
           index={index}
           totalMiles={load.distance.value}
           payout={load.payout.value}
+          expanded={index === 0}
         />
       ))}
     </div>
@@ -26,10 +27,11 @@ interface LoadTableProps {
   index: number;
   totalMiles: number;
   payout: number;
+  expanded: boolean;
 }
 
-export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, payout }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, payout, expanded }) => {
+  const [isExpanded, setIsExpanded] = useState(expanded);
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -56,6 +58,9 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              {load.loadType === Relay.LoadType.Bobtail && (
+                <div style={{ fontSize: '0.875rem', color: 'red', fontWeight: 500 }}>Bobtail</div>
+              )}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '0.875rem', color: '#4B5563' }}>{totalMiles.toFixed(2)} mi</div>
               </div>
@@ -84,6 +89,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
                     fontSize: '0.875rem',
                     fontWeight: 500,
                     color: '#6B7280',
+                    width: 400,
                   }}>
                   Stop
                 </th>
@@ -122,7 +128,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
             <tbody style={{ backgroundColor: 'white', borderTop: '1px solid #E5E7EB' }}>
               {load.stops.map((stop, stopIndex) => (
                 <tr key={stopIndex} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                  <td style={{ padding: '0.75rem 1rem' }}>
+                  <td style={{ padding: '0.75rem 0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                       <div
                         style={{
@@ -140,9 +146,12 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
                         </span>
                       </div>
                       <div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{stop.location.line1}</div>
+                        {stop.locationCode && (
+                          <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{stop.locationCode}</div>
+                        )}
                         <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>
-                          {stop.location.city}, {stop.location.state} {stop.location.postalCode}
+                          {stop.location.line1 ? stop.location.line1 + ', ' : ''} {stop.location.city},{' '}
+                          {stop.location.state} {stop.location.postalCode}
                         </div>
                       </div>
                     </div>
@@ -150,7 +159,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
                   <td style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ fontSize: '0.875rem' }}>
                       <div>
-                        {renderLoadType(load.loadType)} {stop.trailerDetails[0]?.assetType || "53' Trailer"}
+                        {renderLoadType(load.loadType)} {renderEqupmentType(load.equipmentType)}
                       </div>
                       <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                         {stop.loadingType || stop.unloadingType}
@@ -174,6 +183,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
                         hour: '2-digit',
                         minute: '2-digit',
                         timeZoneName: 'short',
+                        timeZone: stop.location.timeZone,
                         hour12: false,
                       })}
                     </div>
@@ -187,6 +197,7 @@ export const LoadTable: React.FC<LoadTableProps> = ({ load, index, totalMiles, p
                         hour: '2-digit',
                         minute: '2-digit',
                         timeZoneName: 'short',
+                        timeZone: stop.location.timeZone,
                         hour12: false,
                       })}
                     </div>
@@ -214,7 +225,7 @@ function renderLoadType(loadType: Relay.LoadType) {
     case Relay.LoadType.Loaded:
       return <i className="fa fa-circle"></i>;
     case Relay.LoadType.Bobtail:
-      return 'B';
+      return <i className="fa fa-circle-o"></i>;
     case Relay.LoadType.Empty:
       return <i className="fa fa-circle-o"></i>;
     default:
@@ -222,10 +233,31 @@ function renderLoadType(loadType: Relay.LoadType) {
   }
 }
 
+function renderEqupmentType(type: Relay.EquipmentType) {
+  switch (type) {
+    case Relay.EquipmentType.FiftyThreeFootTruck:
+      return "53' Trailer";
+    case Relay.EquipmentType.FiftyThreeFootContainer:
+      return "53' Container";
+    case Relay.EquipmentType.CubeTruck:
+      return 'CubeTruck';
+    case Relay.EquipmentType.TwentySixFootBoxTruck:
+      return "26' FootBox";
+    default:
+      return type;
+  }
+}
+
 function getCityAndState(stop: Relay.Stop) {
+  let text = stop.location.city;
+
   if (stop.location.state) {
-    return `${stop.location.city}, ${stop.location.state}`;
+    text = `${text}, ${stop.location.state}`;
   }
 
-  return stop.location.city;
+  if (stop.locationCode) {
+    text = `${stop.locationCode}, ${text}`;
+  }
+
+  return text;
 }
